@@ -1,42 +1,104 @@
 name: CI/CD Pipeline
 
 on:
-  release:
-    types: [ published ]
   push:
-    branches:
-      - '**'
-    tags-ignore:
-      - '**'
+    branches: ["**"]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   lint:
-    name: Lint Code
+    name: Lint with Ruff
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Ruff
+        run: pip install ruff==0.8.4
+
+      - name: Run Ruff linter
+        run: ruff check app/ tests/
+
+      - name: Run Ruff formatter check
+        run: ruff format --check app/ tests/
 
   test:
-    name: Run Tests
+    name: Run Tests with Coverage
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    needs: lint
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-  build:
-    name: Build Docker Image
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        run: pytest --cov=app --cov-report=html --cov-fail-under=80
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+  build-and-push:
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: [lint, test]
-    if: github.event_name == 'push' || github.event_name == 'release'
+    needs: test
     permissions:
       contents: read
-      actions: read
       packages: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Tag with branch name on every push
+            type=ref,event=branch
+            # Tag with PR number on pull requests
+            type=ref,event=pr
+            # Tag with version and 'latest' on releases (e.g. v1.0.0)
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # Only push on tags (releases) or pushes to main
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
