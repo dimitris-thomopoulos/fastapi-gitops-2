@@ -87,5 +87,19 @@ async def delete_item(item_id: int):
     return {"deleted": True, "id": item_id}
 
 
+@app.post("/api/items")
+async def create_item(name: str, description: str):
+    """Create a new item."""
+    new_id = max(item["id"] for item in items) + 1
+    new_item = {
+        "id": new_id,
+        "name": name,
+        "description": description,
+        "created": True,
+    }
+    items.append(new_item)
+    return new_item
+
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec B104

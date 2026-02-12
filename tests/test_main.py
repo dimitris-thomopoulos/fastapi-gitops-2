@@ -127,3 +127,20 @@ def test_search_items_no_results():
     assert response.status_code == 200
     data = response.json()
     assert data["items"] == []
+
+
+def test_create_item():
+    """Test the create item endpoint."""
+    response = client.post(
+        "/api/items?name=Learn+guitar&description=Practice+30+minutes+daily"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Learn guitar"
+    assert data["description"] == "Practice 30 minutes daily"
+    assert data["created"] is True
+    assert data["id"] == 6  # Should be next after the 5 existing items
+
+    # Verify it appears in the list
+    response = client.get("/api/items")
+    assert len(response.json()["items"]) == 6
