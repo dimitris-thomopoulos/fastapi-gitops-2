@@ -1,0 +1,24 @@
+image:
+  repository: fastapi-gitops-starter
+  tag: "local"
+  pullPolicy: Never  # Don't try to pull from a registry
+
+registry:
+  createImagePullSecret: false  # No need for pull secret
+
+ingress:
+  enabled: true
+  hosts:
+    - host: naavre-dev.minikube.test
+      paths:
+        - path: /GitOps-Starter
+          pathType: Prefix
+
+app:
+  rootPath: "/GitOps-Starter"
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 10
