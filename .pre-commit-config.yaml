@@ -1,5 +1,47 @@
 repos:
+  # General purpose hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # Prevent committing large files (default max = 500kB)
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+
+      # Check YAML files for syntax errors, excluding Helm chart templates
+      # (Helm templates use {{ }} syntax which is not valid YAML)
+      - id: check-yaml
+        exclude: ^helm/.*templates/
+
+      # General hygiene
       - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  # Sort imports in Python files
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+  # Check for security issues in Python code
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml"]
+        additional_dependencies: ["bandit[toml]"]
+
+  # Make sure we do not commit secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+
+  # Check code style with Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
